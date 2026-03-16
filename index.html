@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
+    <title>AuraWrite Pro | Production Suite</title>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --bg: #0b0c10;
+            --surface: #14151a;
+            --accent: #6366f1;
+            --text: #e2e8f0;
+            --border: rgba(255, 255, 255, 0.08);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { 
+            background: var(--bg); 
+            color: var(--text); 
+            height: 100dvh; 
+            display: flex; 
+            flex-direction: column; 
+            overflow: hidden; 
+            position: fixed;
+            width: 100%;
+        }
+
+        /* App Header */
+        header { 
+            height: 60px;
+            padding: 0 15px; 
+            display: flex; 
+            align-items: center; 
+            border-bottom: 1px solid var(--border); 
+            background: var(--bg); 
+            z-index: 100;
+        }
+        #activeTitle { flex: 1; background: transparent; border: none; color: white; font-size: 1rem; outline: none; margin-left: 10px; font-family: monospace; }
+
+        /* Workspace */
+        .editor-container { 
+            flex: 1; 
+            position: relative; 
+            background: #08090b; 
+            display: flex;
+        }
+        .editor { 
+            width: 100%; 
+            height: 100%; 
+            background: transparent; 
+            border: none; 
+            outline: none; 
+            color: #ced4da; 
+            font-family: 'Fira Code', monospace; 
+            font-size: 15px; 
+            padding: 20px; 
+            line-height: 1.6; 
+            resize: none;
+            overflow-y: auto;
+        }
+
+        /* Action Bar */
+        .action-bar { 
+            height: 70px;
+            background: var(--surface); 
+            display: flex; 
+            justify-content: space-around; 
+            align-items: center;
+            border-top: 1px solid var(--border);
+            padding: 0 10px;
+            z-index: 100;
+        }
+
+        .icon-btn { 
+            width: 48px; 
+            height: 48px; 
+            border-radius: 14px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            background: rgba(255,255,255,0.03); 
+            border: 1px solid var(--border); 
+            color: white; 
+        }
+
+        /* --- THE ULTIMATE PREVIEW SYSTEM --- */
+        #productionPreview {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: white;
+            z-index: 99999;
+            overflow: auto;
+        }
+        #backHandle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000000;
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 50px;
+            font-weight: bold;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            opacity: 0.8;
+        }
+        #backHandle:hover { opacity: 1; }
+        #previewContent { width: 100%; height: 100%; border: none; }
+
+        /* Modals & Sidebar */
+        .sidebar { position: fixed; left: -280px; top: 0; bottom: 0; width: 280px; background: var(--surface); border-right: 1px solid var(--border); z-index: 3000; transition: 0.3s; }
+        .sidebar.open { left: 0; }
+        .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 2999; }
+        .sidebar-overlay.open { display: block; }
+        .modal { display: none; position: fixed; inset: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 20px; z-index: 5000; flex-direction: column; padding: 20px; }
+        #toast { visibility: hidden; position: fixed; top: 80px; left: 50%; transform: translateX(-50%); background: var(--accent); color: white; padding: 8px 20px; border-radius: 20px; font-size: 0.8rem; z-index: 6000; }
+        #toast.show { visibility: visible; }
+    </style>
+</head>
+<body>
+
+    <div id="toast">Ready</div>
+    <div class="sidebar-overlay" id="overlay" onclick="toggleSidebar()"></div>
+
+    <div id="productionPreview">
+        <button id="backHandle" onclick="stopPreview()">
+            <i data-lucide="arrow-left"></i> BACK
+        </button>
+        <div id="previewContent"></div>
+    </div>
+
+    <div class="modal" id="assetModal">
+        <div style="display:flex; justify-content:space-between; margin-bottom:20px;"><h3>Assets</h3><button onclick="toggleModal()" style="background:none; border:none; color:white;"><i data-lucide="x"></i></button></div>
+        <input type="file" id="imgInput" style="display:none" onchange="convertImage(this)">
+        <button onclick="document.getElementById('imgInput').click()" style="width:100%; padding:15px; border-radius:12px; background:#000; border:1px solid var(--border); color:white;">Convert Image</button>
+        <div id="b64Out" style="margin-top:15px; font-size:8px; word-break:break-all; max-height:150px; overflow:auto; padding:10px; background:#000; color:var(--accent); display:none;"></div>
+    </div>
+
+    <aside class="sidebar" id="sidebar">
+        <div style="padding:25px; border-bottom:1px solid var(--border)"><h2 style="color:var(--accent)">AURA_PRO</h2></div>
+        <div style="padding:20px; color:#555">v10.0 Production Build</div>
+    </aside>
+
+    <header>
+        <button onclick="toggleSidebar()" style="background:none; border:none; color:white;"><i data-lucide="menu"></i></button>
+        <input type="text" id="activeTitle" value="index.html">
+    </header>
+
+    <div class="editor-container">
+        <textarea id="editor" class="editor" spellcheck="false" placeholder="// Paste your website or app code here..."></textarea>
+    </div>
+
+    <footer class="action-bar">
+        <button class="icon-btn" onclick="toggleModal()"><i data-lucide="image"></i></button>
+        <button class="icon-btn" style="background:var(--accent); border:none;" onclick="startPreview()"><i data-lucide="play"></i></button>
+        <button class="icon-btn" onclick="downloadAs('html')"><i data-lucide="download"></i></button>
+        <button class="icon-btn" onclick="clearEditor()"><i data-lucide="trash-2"></i></button>
+    </footer>
+
+    <script>
+        const editor = document.getElementById('editor');
+
+        // --- PRODUCTION PREVIEW LOGIC ---
+        // We use Shadow DOM to prevent CSS leaks while keeping full functionality
+        function startPreview() {
+            const code = editor.value;
+            const container = document.getElementById('previewContent');
+            const previewLayer = document.getElementById('productionPreview');
+            
+            previewLayer.style.display = 'block';
+            
+            // Clean old content
+            container.innerHTML = '';
+            
+            // Create a temporary Shadow Root or iframe with relaxed permissions
+            const iframe = document.createElement('iframe');
+            iframe.setAttribute('id', 'renderFrame');
+            iframe.style.width = '100%';
+            iframe.style.height = '100%';
+            iframe.style.border = 'none';
+            container.appendChild(iframe);
+            
+            const frameDoc = iframe.contentWindow.document;
+            frameDoc.open();
+            frameDoc.write(code);
+            frameDoc.close();
+            
+            // Re-initialize icons for the back button
+            lucide.createIcons();
+        }
+
+        function stopPreview() {
+            document.getElementById('productionPreview').style.display = 'none';
+            document.getElementById('previewContent').innerHTML = '';
+        }
+
+        // --- UTILS ---
+        function downloadAs(ext) {
+            const title = document.getElementById('activeTitle').value.split('.')[0] || 'app';
+            const a = document.createElement('a');
+            a.href = "data:text/plain;charset=utf-8," + encodeURIComponent(editor.value);
+            a.download = `${title}.${ext}`;
+            a.click();
+            showToast("Saved!");
+        }
+
+        function convertImage(input) {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const out = document.getElementById('b64Out');
+                out.innerText = reader.result;
+                out.style.display = 'block';
+                navigator.clipboard.writeText(reader.result);
+                showToast("Copied!");
+            };
+            if(input.files[0]) reader.readAsDataURL(input.files[0]);
+        }
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+            document.getElementById('overlay').classList.toggle('open');
+        }
+
+        function toggleModal() {
+            const m = document.getElementById('assetModal');
+            m.style.display = (m.style.display === 'flex') ? 'none' : 'flex';
+        }
+
+        function clearEditor() {
+            if(confirm("Clear workspace?")) editor.value = "";
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.innerText = msg; t.className = "show";
+            setTimeout(() => t.className = "", 2000);
+        }
+
+        window.onload = () => lucide.createIcons();
+    </script>
+</body>
+</html>
