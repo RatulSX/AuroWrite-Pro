@@ -11,3 +11,5 @@ Layout Stability: Fixed viewport logic designed to maintain UI element positions
 Framework-Free: Developed using vanilla JavaScript to ensure low memory usage and high responsiveness on mobile browsers.
 
 Export System: Support for generating standalone .html files or raw .txt backups.
+
+Developed by Ratul 😉💋
